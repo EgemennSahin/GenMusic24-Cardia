@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Timers;
+using System.Net;
 
 namespace MGT.HRM.Emulator
 {
@@ -146,6 +147,24 @@ namespace MGT.HRM.Emulator
 #endif
             PacketProcessedEventArgs args2 = new PacketProcessedEventArgs(lastPacket);
             base.FirePacketProcessed(args2);
+
+            try
+            {
+                using (var client = new WebClient())
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "application/json";
+
+                    // Manually constructing JSON string
+                    string json = "{\"heartRate\":" + bpm.ToString() + "}";
+
+                    // Assuming your localhost server is set up to receive POST requests at this endpoint
+                    client.UploadString("http://localhost:5000/api/heartRate", "POST", json);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("Failed to send heart rate data to localhost server", ex);
+            }
         }
 
         public override IHRMPacket LastPacket

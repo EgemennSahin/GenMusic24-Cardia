@@ -369,6 +369,24 @@ namespace MGT.HRM.HRP
             lastPacket = btHrpPacket;
 
             ProcessPackets();
+
+            try
+            {
+                using (var client = new System.Net.WebClient())
+                {
+                    client.Headers[System.Net.HttpRequestHeader.ContentType] = "application/json";
+
+                    // Manually constructing JSON string
+                    string json = "{\"heartRate\":" + lastPacket.HeartRate.ToString() + "}";
+
+                    // Assuming your localhost server is set up to receive POST requests at this endpoint
+                    client.UploadString("http://localhost:5000/api/heartRate", "POST", json);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("Failed to send heart rate data to localhost server", ex);
+            }
         }
 
         private void ProcessPackets()
