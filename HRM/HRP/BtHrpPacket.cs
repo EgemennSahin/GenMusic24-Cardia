@@ -12,9 +12,12 @@ namespace MGT.HRM.HRP
         public int ExpendedEnergy { get; set; }
         public DateTimeOffset Timestamp { get; set; }
 
+        public int RRInterval { get; set; } // Added for storing RR intervals
+
         public override string ToString()
         {
-            return base.ToString() + "[ HeartRate = " + HeartRate + " ]";
+            // Create a string representation of the RR intervals list
+            return $"[ HeartRate = {HeartRate}, HRV = {RRInterval} ]";
         }
 
     }

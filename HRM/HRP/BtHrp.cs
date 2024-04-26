@@ -6,6 +6,8 @@ using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Enumeration.Pnp;
 using Windows.Storage.Streams;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MGT.HRM.HRP
 {
@@ -327,6 +329,8 @@ namespace MGT.HRM.HRP
             byte flags = data[currentOffset];
             bool isHeartRateValueSizeLong = ((flags & HEART_RATE_VALUE_FORMAT) != 0);
             bool hasEnergyExpended = ((flags & ENERGY_EXPANDED_STATUS) != 0);
+            bool hasRRInterval = ((flags & 0x10) != 0); // Adding check for RR-interval presence
+
 
             currentOffset++;
 
@@ -351,12 +355,32 @@ namespace MGT.HRM.HRP
                 currentOffset += 2;
             }
 
+            int rrInterval = 0;
+            if (hasRRInterval)
+            {
+                // Process the RR interval data and calculate the average
+                int sumRRIntervals = 0;
+                int numRRIntervals = 0;
+
+                while (currentOffset < data.Length)
+                {
+                    ushort rrIntervalValue = (ushort)((data[currentOffset + 1] << 8) + data[currentOffset]);
+                    sumRRIntervals += rrIntervalValue;
+                    numRRIntervals++;
+                    currentOffset += 2;
+                }
+
+                // Calculate the average RR interval
+                rrInterval = numRRIntervals > 0 ? sumRRIntervals / numRRIntervals : 0;
+            }
+
             BtHrpPacket btHrpPacket = new BtHrpPacket
             {
                 HeartRate = heartRateMeasurementValue,
                 HasExpendedEnergy = hasEnergyExpended,
                 ExpendedEnergy = expendedEnergyValue,
-                Timestamp = timestamp
+                Timestamp = timestamp,
+                RRInterval = rrInterval
             };
 
 #if DEBUG
@@ -376,8 +400,13 @@ namespace MGT.HRM.HRP
                 {
                     client.Headers[System.Net.HttpRequestHeader.ContentType] = "application/json";
 
-                    // Manually constructing JSON string
-                    string json = "{\"heartRate\":" + lastPacket.HeartRate.ToString() + "}";
+
+                    // Manually constructing JSON string including heart rate and RR intervals
+                    string json = "{\"heartRate\": " + lastPacket.HeartRate.ToString() +
+                                  ", \"rrInterval\": " + lastPacket.RRInterval.ToString() + "}";
+#if DEBUG
+                    logger.Debug("json: " + json);
+#endif
 
                     // Assuming your localhost server is set up to receive POST requests at this endpoint
                     client.UploadString("http://localhost:5000/api/heartRate", "POST", json);
