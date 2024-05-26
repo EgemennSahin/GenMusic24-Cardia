@@ -50,7 +50,7 @@ namespace MGT.HRM.HRP
             }
         }
 
-        private int initDelay = 500;
+        private int initDelay = 100;
 
         public delegate void InitDelayChangedEventHandler(object sender, int delay);
         public event InitDelayChangedEventHandler InitDelayChanged;
@@ -86,7 +86,7 @@ namespace MGT.HRM.HRP
 
         private static TimeSpan START_TIMEOUT = new TimeSpan(0, 0, 10);
         private static TimeSpan RUN_TIMEOUT = new TimeSpan(0, 0, 30);
-        private System.Timers.Timer timeoutTimer = new System.Timers.Timer(1000);
+        private System.Timers.Timer timeoutTimer = new System.Timers.Timer(100);
         private DateTime lastReceivedDate;
 
         public BtHrp()
@@ -329,8 +329,7 @@ namespace MGT.HRM.HRP
             byte flags = data[currentOffset];
             bool isHeartRateValueSizeLong = ((flags & HEART_RATE_VALUE_FORMAT) != 0);
             bool hasEnergyExpended = ((flags & ENERGY_EXPANDED_STATUS) != 0);
-            bool hasRRInterval = ((flags & 0x10) != 0); // Adding check for RR-interval presence
-
+            bool hasRRInterval = ((flags & 0x10) != 0);
 
             currentOffset++;
 
@@ -355,23 +354,15 @@ namespace MGT.HRM.HRP
                 currentOffset += 2;
             }
 
-            int rrInterval = 0;
+            List<int> rrIntervals = new List<int>();
             if (hasRRInterval)
             {
-                // Process the RR interval data and calculate the average
-                int sumRRIntervals = 0;
-                int numRRIntervals = 0;
-
                 while (currentOffset < data.Length)
                 {
                     ushort rrIntervalValue = (ushort)((data[currentOffset + 1] << 8) + data[currentOffset]);
-                    sumRRIntervals += rrIntervalValue;
-                    numRRIntervals++;
+                    rrIntervals.Add(rrIntervalValue);
                     currentOffset += 2;
                 }
-
-                // Calculate the average RR interval
-                rrInterval = numRRIntervals > 0 ? sumRRIntervals / numRRIntervals : 0;
             }
 
             BtHrpPacket btHrpPacket = new BtHrpPacket
@@ -380,7 +371,7 @@ namespace MGT.HRM.HRP
                 HasExpendedEnergy = hasEnergyExpended,
                 ExpendedEnergy = expendedEnergyValue,
                 Timestamp = timestamp,
-                RRInterval = rrInterval
+                RRIntervals = rrIntervals // Storing all RR intervals
             };
 
 #if DEBUG
@@ -388,7 +379,6 @@ namespace MGT.HRM.HRP
 #endif
 
             TotalPackets++;
-
             secondLastPacket = lastPacket;
             lastPacket = btHrpPacket;
 
@@ -400,15 +390,12 @@ namespace MGT.HRM.HRP
                 {
                     client.Headers[System.Net.HttpRequestHeader.ContentType] = "application/json";
 
-
-                    // Manually constructing JSON string including heart rate and RR intervals
                     string json = "{\"heartRate\": " + lastPacket.HeartRate.ToString() +
-                                  ", \"rrInterval\": " + lastPacket.RRInterval.ToString() + "}";
+                                  ", \"rrIntervals\": [" + string.Join(", ", lastPacket.RRIntervals) + "]}";
 #if DEBUG
                     logger.Debug("json: " + json);
 #endif
 
-                    // Assuming your localhost server is set up to receive POST requests at this endpoint
                     client.UploadString("http://localhost:5000/api/heartRate", "POST", json);
                 }
             }
