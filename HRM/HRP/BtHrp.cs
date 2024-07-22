@@ -396,7 +396,7 @@ namespace MGT.HRM.HRP
                     logger.Debug("json: " + json);
 #endif
 
-                    client.UploadString("http://localhost:5000/api/heartRate", "POST", json);
+                    client.UploadString("http://localhost:5000/heartRate", "POST", json);
                 }
             }
             catch (Exception ex)
